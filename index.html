@@ -2,30 +2,56 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>진성비 시뮬레이터</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>진 익스트림 성장의 비약 시뮬레이터</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background-color: #f4f4f9; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #333; }
-        label { display: block; margin-top: 15px; font-weight: bold; }
-        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; margin-top: 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #45a049; }
-        #result { margin-top: 20px; padding: 15px; border-top: 2px solid #eee; }
-        .log { font-size: 0.9em; color: #666; max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 5px; margin-top: 10px; }
-        .highlight { color: #e91e63; font-weight: bold; }
+        body { font-family: 'Pretendard', sans-serif; padding: 20px; line-height: 1.6; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a73e8; margin-bottom: 25px; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; transition: border 0.2s; }
+        input:focus { border-color: #1a73e8; outline: none; background-color: #f8fbff; }
+        button { width: 100%; padding: 15px; background-color: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; transition: 0.2s; }
+        button:hover { background-color: #1557b0; }
+        #result { margin-top: 30px; }
+        .summary { background: #e8f0fe; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; border-left: 5px solid #1a73e8; }
+        .summary span { font-size: 24px; font-weight: bold; color: #1a73e8; }
+        .log-container { max-height: 350px; overflow-y: auto; background: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 15px; }
+        .log-item { padding: 8px 0; border-bottom: 1px solid #edf0f2; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .log-item:last-child { border-bottom: none; }
+        .up-count { color: #d93025; font-weight: bold; }
+        
+        #expInputGroup { display: none; background: #fff9db; padding: 10px; border-radius: 8px; border: 1px dashed #fab005; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>성장의 비약 시뮬레이터</h2>
+    <h2>진 익성비 시뮬레이터</h2>
     
-    <label for="currentLevel">현재 레벨 (200~259)</label>
-    <input type="number" id="currentLevel" value="200" min="200" max="259">
+    <div class="input-group">
+        <label for="currentLevel">현재 레벨 (200 ~ 299)</label>
+        <input type="number" id="currentLevel" value="200" min="200" max="299" 
+               oninput="toggleExpInput()" 
+               onblur="checkMinLevel()"
+               onfocus="this.select()" 
+               onwheel="handleWheel(event)">
+    </div>
+
+    <div id="expInputGroup" class="input-group">
+        <label for="currentExp">현재 경험치 % (정수 0~99)</label>
+        <input type="number" id="currentExp" value="0" min="0" max="99" 
+               onfocus="this.select()" 
+               onwheel="handleWheel(event)">
+    </div>
     
-    <label for="itemCount">사용할 개수</label>
-    <input type="number" id="itemCount" value="1" min="1">
+    <div class="input-group">
+        <label for="itemCount">사용할 비약 개수</label>
+        <input type="number" id="itemCount" value="1" min="1" 
+               onfocus="this.select()" 
+               onwheel="handleWheel(event)">
+    </div>
     
     <button onclick="simulate()">시뮬레이션 시작</button>
     
@@ -33,79 +59,145 @@
 </div>
 
 <script>
-    // 이미지 기반 확률 데이터 (각 구간 시작 레벨 기준)
+    // 마우스 휠 조절 함수
+    function handleWheel(event) {
+        event.preventDefault();
+        const input = event.target;
+        const min = parseInt(input.min) || 0;
+        const max = parseInt(input.max) || Infinity;
+        let val = parseInt(input.value) || 0;
+
+        if (event.deltaY < 0) val++;
+        else val--;
+
+        if (val < min) val = min;
+        if (val > max) val = max;
+
+        input.value = val;
+        if (input.id === 'currentLevel') toggleExpInput();
+    }
+
+    // 최소 레벨 강제 보정 (포커스를 잃었을 때 실행)
+    function checkMinLevel() {
+        const levelInput = document.getElementById('currentLevel');
+        let val = parseInt(levelInput.value);
+        if (isNaN(val) || val < 200) {
+            levelInput.value = 200;
+        }
+        toggleExpInput();
+    }
+
+    function toggleExpInput() {
+        const levelInput = document.getElementById('currentLevel');
+        let level = parseInt(levelInput.value);
+
+        // 최대값 실시간 제한
+        if (level > 299) {
+            levelInput.value = 299;
+            level = 299;
+        }
+
+        const expGroup = document.getElementById('expInputGroup');
+        if (level >= 260) {
+            expGroup.style.display = 'block';
+        } else {
+            expGroup.style.display = 'none';
+        }
+    }
+
     const probData = {
-        200: [0, 0, 0, 0, 0, 5, 10, 15, 40, 30],
-        202: [0, 0, 0, 0, 0, 10, 15, 25, 30, 20],
-        205: [0, 0, 0, 0, 0, 20, 30, 30, 15, 5],
-        210: [0, 0, 0, 0, 10, 30, 35, 20, 5, 0],
-        215: [0, 0, 0, 0, 35, 30, 25, 10, 0, 0],
-        216: [0, 0, 0, 0, 40, 30, 20, 10, 0, 0],
-        220: [0, 0, 0, 10, 40, 35, 15, 0, 0, 0],
-        222: [0, 0, 0, 20, 40, 30, 10, 0, 0, 0],
-        225: [0, 0, 0, 35, 40, 20, 5, 0, 0, 0],
-        230: [0, 0, 20, 40, 30, 10, 0, 0, 0, 0],
-        234: [0, 0, 40, 40, 15, 5, 0, 0, 0, 0],
-        244: [0, 50, 30, 20, 0, 0, 0, 0, 0, 0],
-        250: [0, 80, 20, 0, 0, 0, 0, 0, 0, 0],
-        255: [10, 90, 0, 0, 0, 0, 0, 0, 0, 0]
+        200: [0,0,0,0,0,5,10,15,40,30], 201: [0,0,0,0,0,5,15,20,30,30], 202: [0,0,0,0,0,10,15,25,30,20], 203: [0,0,0,0,0,10,20,30,25,15], 204: [0,0,0,0,0,15,25,30,20,10],
+        205: [0,0,0,0,0,20,30,30,15,5], 206: [0,0,0,0,0,25,30,30,10,5], 207: [0,0,0,0,0,30,30,30,10,0], 208: [0,0,0,0,0,35,30,25,10,0], 209: [0,0,0,0,0,40,35,20,5,0],
+        210: [0,0,0,0,10,30,35,20,5,0], 211: [0,0,0,0,15,30,30,20,5,0], 212: [0,0,0,0,20,30,30,15,5,0], 213: [0,0,0,0,25,30,30,15,0,0], 214: [0,0,0,0,30,30,25,15,0,0],
+        215: [0,0,0,0,35,30,25,10,0,0], 216: [0,0,0,0,40,30,20,10,0,0], 217: [0,0,0,0,40,35,15,10,0,0], 218: [0,0,0,0,50,30,15,5,0,0], 219: [0,0,0,0,50,35,10,5,0,0],
+        220: [0,0,0,10,40,35,15,0,0,0], 221: [0,0,0,15,40,35,10,0,0,0], 222: [0,0,0,20,40,30,10,0,0,0], 223: [0,0,0,25,40,25,10,0,0,0], 224: [0,0,0,30,40,20,10,0,0,0],
+        225: [0,0,0,35,40,20,5,0,0,0], 226: [0,0,0,40,40,15,5,0,0,0], 227: [0,0,0,45,40,10,5,0,0,0], 228: [0,0,0,50,40,10,0,0,0,0], 229: [0,0,0,55,35,10,0,0,0,0],
+        230: [0,0,20,40,30,10,0,0,0,0], 231: [0,0,25,40,30,5,0,0,0,0], 232: [0,0,30,40,25,5,0,0,0,0], 233: [0,0,35,40,20,5,0,0,0,0], 234: [0,0,40,40,15,5,0,0,0,0],
+        235: [0,0,45,40,10,5,0,0,0,0], 236: [0,0,50,40,10,0,0,0,0,0], 237: [0,0,55,35,10,0,0,0,0,0], 238: [0,0,60,30,10,0,0,0,0,0], 239: [0,0,65,30,5,0,0,0,0,0],
+        240: [0,20,50,30,0,0,0,0,0,0], 241: [0,30,40,30,0,0,0,0,0,0], 242: [0,40,30,30,0,0,0,0,0,0], 243: [0,45,30,25,0,0,0,0,0,0], 244: [0,50,30,20,0,0,0,0,0,0],
+        245: [0,55,30,15,0,0,0,0,0,0], 246: [0,60,30,10,0,0,0,0,0,0], 247: [0,70,20,10,0,0,0,0,0,0], 248: [0,75,20,5,0,0,0,0,0,0], 249: [0,85,10,5,0,0,0,0,0,0],
+        250: [0,80,20,0,0,0,0,0,0,0], 251: [0,85,15,0,0,0,0,0,0,0], 252: [0,90,10,0,0,0,0,0,0,0], 253: [0,95,5,0,0,0,0,0,0,0], 254: [5,95,0,0,0,0,0,0,0,0],
+        255: [10,90,0,0,0,0,0,0,0,0], 256: [15,85,0,0,0,0,0,0,0,0], 257: [20,80,0,0,0,0,0,0,0,0], 258: [25,75,0,0,0,0,0,0,0,0], 259: [100,0,0,0,0,0,0,0,0,0]
     };
 
-    function getLevelUpAmount(level) {
-        const keys = Object.keys(probData).map(Number).sort((a, b) => b - a);
-        let activeKey = 200;
-        
-        for (let key of keys) {
-            if (level >= key) {
-                activeKey = key;
-                break;
-            }
-        }
-
-        const probs = probData[activeKey];
-        const rand = Math.random() * 100;
-        let cumulative = 0;
-
-        for (let i = 0; i < probs.length; i++) {
-            cumulative += probs[i];
-            if (rand <= cumulative) {
-                return i + 1; // 1~10레벨 상승
-            }
-        }
-        return 1; // 기본값
-    }
+    const jinExpData = {
+        260: 14.057, 261: 13.918, 262: 13.780, 263: 13.642, 264: 13.508,
+        265: 10.390, 266: 10.288, 267: 10.187, 268: 10.085, 269: 9.985,
+        270: 4.498, 271: 4.453, 272: 4.409, 273: 4.365, 274: 4.323,
+        275: 2.140, 276: 1.945, 277: 1.768, 278: 1.608, 279: 1.461,
+        280: 0.723, 281: 0.658, 282: 0.598, 283: 0.543, 284: 0.495,
+        285: 0.244, 286: 0.222, 287: 0.202, 288: 0.183, 289: 0.168,
+        290: 0.083, 291: 0.075, 292: 0.069, 293: 0.063, 294: 0.056,
+        295: 0.028, 296: 0.025, 297: 0.023, 298: 0.020, 299: 0.014
+    };
 
     function simulate() {
+        checkMinLevel(); // 시작 전 레벨 검증 한 번 더 수행
         let level = parseInt(document.getElementById('currentLevel').value);
+        let exp = parseInt(document.getElementById('currentExp').value) || 0;
         let count = parseInt(document.getElementById('itemCount').value);
-        let logHtml = "";
-        const startLevel = level;
 
-        if (level < 200 || level >= 260) {
-            alert("레벨 범위는 200~259 사이여야 합니다.");
-            return;
-        }
+        const startLevel = level;
+        const startExp = exp;
+        let logHtml = "";
 
         for (let i = 1; i <= count; i++) {
-            if (level >= 260) {
-                logHtml += `<div>${i}개째: <span class="highlight">이미 260레벨에 도달했습니다.</span></div>`;
-                break;
-            }
-            
-            let up = getLevelUpAmount(level);
             let prevLevel = level;
-            level += up;
-            if (level > 260) level = 260;
+            let prevExp = exp;
+            let logMsg = "";
 
-            logHtml += `<div>${i}회차: Lv.${prevLevel} → <span class="highlight">Lv.${level}</span> (${up}업)</div>`;
+            if (level < 260) {
+                const probs = probData[level];
+                const rand = Math.random() * 100;
+                let cumulative = 0;
+                let up = 1;
+
+                for (let j = 0; j < probs.length; j++) {
+                    cumulative += probs[j];
+                    if (rand <= cumulative) {
+                        up = j + 1;
+                        break;
+                    }
+                }
+
+                level += up;
+                exp = 0;
+                if (level > 260) level = 260;
+                logMsg = `<span>${i}회차: Lv.${prevLevel} → Lv.${level}</span><span class="up-count">+${up}업</span>`;
+            } else {
+                if (level >= 300) {
+                    logHtml += `<div class="log-item"><span>${i}회차</span><span>최대 레벨 도달</span></div>`;
+                    break;
+                }
+
+                let gain = jinExpData[level] || 0;
+                exp += gain;
+
+                if (exp >= 100) {
+                    level++;
+                    exp -= 100;
+                    logMsg = `<span>${i}회차: Lv.${prevLevel} → Lv.${level} (${exp.toFixed(3)}%)</span><span class="up-count">LEVEL UP!</span>`;
+                } else {
+                    logMsg = `<span>${i}회차: Lv.${level} (${prevExp.toFixed(3)}% → ${exp.toFixed(3)}%)</span><span class="exp-gain">+${gain.toFixed(3)}%</span>`;
+                }
+            }
+            logHtml += `<div class="log-item">${logMsg}</div>`;
         }
 
+        const finalLevelStr = level >= 260 ? `Lv.${level} (${exp.toFixed(3)}%)` : `Lv.${level}`;
+        const startLevelStr = startLevel >= 260 ? `Lv.${startLevel} (${startExp}%)` : `Lv.${startLevel}`;
+
         document.getElementById('result').innerHTML = `
-            <h3>결과: Lv.${startLevel} → Lv.${level}</h3>
-            <p>총 <strong>${level - startLevel}</strong> 레벨 상승했습니다.</p>
-            <div class="log">${logHtml}</div>
+            <div class="summary">
+                최종 결과<br>
+                <span>${startLevelStr} → ${finalLevelStr}</span><br>
+                (약 ${(level - startLevel + (exp - (startLevel >= 260 ? startExp : 0))/100).toFixed(4)}레벨 분량 상승)
+            </div>
+            <div class="log-container">${logHtml}</div>
         `;
     }
+
+    toggleExpInput();
 </script>
 
 </body>
