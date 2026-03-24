@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>진성비 시뮬레이터</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background-color: #f4f4f9; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        #result { margin-top: 20px; padding: 15px; border-top: 2px solid #eee; }
+        .log { font-size: 0.9em; color: #666; max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        .highlight { color: #e91e63; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>성장의 비약 시뮬레이터</h2>
+    
+    <label for="currentLevel">현재 레벨 (200~259)</label>
+    <input type="number" id="currentLevel" value="200" min="200" max="259">
+    
+    <label for="itemCount">사용할 개수</label>
+    <input type="number" id="itemCount" value="1" min="1">
+    
+    <button onclick="simulate()">시뮬레이션 시작</button>
+    
+    <div id="result"></div>
+</div>
+
+<script>
+    // 이미지 기반 확률 데이터 (각 구간 시작 레벨 기준)
+    const probData = {
+        200: [0, 0, 0, 0, 0, 5, 10, 15, 40, 30],
+        202: [0, 0, 0, 0, 0, 10, 15, 25, 30, 20],
+        205: [0, 0, 0, 0, 0, 20, 30, 30, 15, 5],
+        210: [0, 0, 0, 0, 10, 30, 35, 20, 5, 0],
+        215: [0, 0, 0, 0, 35, 30, 25, 10, 0, 0],
+        216: [0, 0, 0, 0, 40, 30, 20, 10, 0, 0],
+        220: [0, 0, 0, 10, 40, 35, 15, 0, 0, 0],
+        222: [0, 0, 0, 20, 40, 30, 10, 0, 0, 0],
+        225: [0, 0, 0, 35, 40, 20, 5, 0, 0, 0],
+        230: [0, 0, 20, 40, 30, 10, 0, 0, 0, 0],
+        234: [0, 0, 40, 40, 15, 5, 0, 0, 0, 0],
+        244: [0, 50, 30, 20, 0, 0, 0, 0, 0, 0],
+        250: [0, 80, 20, 0, 0, 0, 0, 0, 0, 0],
+        255: [10, 90, 0, 0, 0, 0, 0, 0, 0, 0]
+    };
+
+    function getLevelUpAmount(level) {
+        const keys = Object.keys(probData).map(Number).sort((a, b) => b - a);
+        let activeKey = 200;
+        
+        for (let key of keys) {
+            if (level >= key) {
+                activeKey = key;
+                break;
+            }
+        }
+
+        const probs = probData[activeKey];
+        const rand = Math.random() * 100;
+        let cumulative = 0;
+
+        for (let i = 0; i < probs.length; i++) {
+            cumulative += probs[i];
+            if (rand <= cumulative) {
+                return i + 1; // 1~10레벨 상승
+            }
+        }
+        return 1; // 기본값
+    }
+
+    function simulate() {
+        let level = parseInt(document.getElementById('currentLevel').value);
+        let count = parseInt(document.getElementById('itemCount').value);
+        let logHtml = "";
+        const startLevel = level;
+
+        if (level < 200 || level >= 260) {
+            alert("레벨 범위는 200~259 사이여야 합니다.");
+            return;
+        }
+
+        for (let i = 1; i <= count; i++) {
+            if (level >= 260) {
+                logHtml += `<div>${i}개째: <span class="highlight">이미 260레벨에 도달했습니다.</span></div>`;
+                break;
+            }
+            
+            let up = getLevelUpAmount(level);
+            let prevLevel = level;
+            level += up;
+            if (level > 260) level = 260;
+
+            logHtml += `<div>${i}회차: Lv.${prevLevel} → <span class="highlight">Lv.${level}</span> (${up}업)</div>`;
+        }
+
+        document.getElementById('result').innerHTML = `
+            <h3>결과: Lv.${startLevel} → Lv.${level}</h3>
+            <p>총 <strong>${level - startLevel}</strong> 레벨 상승했습니다.</p>
+            <div class="log">${logHtml}</div>
+        `;
+    }
+</script>
+
+</body>
+</html>
